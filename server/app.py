@@ -14,13 +14,61 @@ migrate = Migrate(app, db)
 
 db.init_app(app)
 
-@app.route('/messages')
+@app.route('/messages', methods = ['GET', 'POST'])
 def messages():
-    return ''
+    if request.method == 'GET':
+        messages = Message.query.all()
+        messages_serialized = [message.to_dict() for message in messages]
 
-@app.route('/messages/<int:id>')
+        response = make_response(
+            messages_serialized,
+            200
+        )
+        return response
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        new_message = Message(
+            body = data["body"],
+            username = data["username"]
+        )
+
+        db.session.add(new_message)
+        db.session.commit()
+
+        new_message_dict = new_message.to_dict()
+
+        response = make_response(
+            new_message_dict,
+            201
+        )
+        return response
+
+@app.route('/messages/<int:id>', methods = ['PATCH', 'DELETE'])
 def messages_by_id(id):
-    return ''
+    messages_by_id = Message.query.filter_by(id=id).first()
+    if request.method == 'PATCH':
+        data = request.get_json()
+        for attr in data:
+            setattr(messages_by_id, attr, data[attr])
+        
+        db.session.add(messages_by_id)
+        db.session.commit()
+
+        messages_serialized = messages_by_id.to_dict()
+
+        return make_response(
+        messages_serialized,
+        200
+    )
+    elif request.method == 'DELETE':
+        db.session.delete(messages_by_id)
+        db.session.commit()
+
+        return make_response({
+            "deleted": True},
+            200
+        )
 
 if __name__ == '__main__':
     app.run(port=5555)
